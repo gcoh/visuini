@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INI Task Visualizer</title>
+    <script src="js/vis-network.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: white;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .upload-zone {
+            background: white;
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-zone:hover {
+            border-color: #764ba2;
+            background: #f8f9ff;
+        }
+
+        .upload-zone.dragover {
+            background: #e8eaff;
+            border-color: #4CAF50;
+        }
+
+        .upload-zone.loaded {
+            display: none;
+        }
+
+        #network {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            min-height: 600px;
+            width: 100%;
+            position: relative;
+        }
+
+        #network canvas {
+            outline: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 18px;
+        }
+
+        .legend {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+            border: 2px solid #ddd;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .control-group input,
+        .control-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+
+        .control-group input[type="range"] {
+            padding: 0;
+            height: 6px;
+            background: #ddd;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-bottom: 8px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-export {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-export:hover {
+            background: #218838;
+        }
+
+        .stats {
+            background: #e8eaff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .stat-value {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+
+        .node-details {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 2px solid #667eea;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .node-details h3 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: -15px -15px 15px -15px;
+            padding: 15px;
+            border-radius: 6px 6px 0 0;
+            font-size: 16px;
+            word-break: break-word;
+        }
+
+        .detail-section {
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+
+        .detail-section-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .detail-row {
+            display: flex;
+            margin: 6px 0;
+            font-size: 12px;
+            padding: 6px;
+            background: white;
+            border-radius: 3px;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            min-width: 90px;
+            color: #555;
+        }
+
+        .detail-value {
+            color: #333;
+            word-break: break-all;
+            flex: 1;
+        }
+
+        .detail-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .detail-list li {
+            padding: 6px;
+            padding-left: 20px;
+            position: relative;
+            background: white;
+            margin: 4px 0;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .detail-list li:hover {
+            background: #e8eaff;
+            transform: translateX(3px);
+            box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
+        }
+
+        .detail-list li:before {
+            content: "→";
+            position: absolute;
+            left: 6px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .detail-list li.missing {
+            background: #fff3cd;
+            border-left: 2px solid #dc3545;
+        }
+
+        .detail-list li.missing:before {
+            content: "⚠";
+            color: #dc3545;
+        }
+
+        .detail-list li.missing:hover {
+            background: #ffe8a1;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .checkbox-group input {
+            width: auto;
+            margin-right: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .edge-legend {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+        }
+
+        .edge-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .edge-line {
+            width: 30px;
+            height: 3px;
+            margin-right: 10px;
+        }
+
+        .scrollable-list {
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .missing-job {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div id="nodeDetailsContainer"></div>
+
+            <div class="legend">
+                <div class="legend-title">📊 Type Legend</div>
+                <div id="legendItems"></div>
+                <div class="edge-legend">
+                    <div class="legend-title">➡️ Link Types</div>
+                    <div class="edge-item">
+                        <div class="edge-line" style="background: #2196F3;"></div>
+                        <span>PRE_RUN (Dependency)</span>
+                    </div>
+                    <div class="edge-item">
+                        <div class="edge-line" style="background: #FF9800; border: 2px dashed #FF9800; height: 0;"></div>
+                        <span>LIST_JOBS (Composition)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label for="searchNode">🔍 Search Task</label>
+                    <input type="text" id="searchNode" placeholder="Task name...">
+                </div>
+
+                <div class="control-group">
+                    <label for="filterType">🎯 Filter by Type</label>
+                    <select id="filterType">
+                        <option value="all">All Types</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="spacingSlider">📏 Node Spacing: <span id="spacingValue">50</span>%</label>
+                    <input type="range" id="spacingSlider" min="50" max="300" value="50" step="10">
+                </div>
+
+                <button class="btn btn-primary" onclick="reloadFile()">📁 New File</button>
+            </div>
+
+            <div id="statsContainer" class="hidden">
+                <div class="stats">
+                    <div class="legend-title">📈 Statistics</div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Tasks:</span>
+                        <span class="stat-value" id="totalNodes">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Links:</span>
+                        <span class="stat-value" id="totalEdges">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Cycles Detected:</span>
+                        <span class="stat-value" id="cyclesCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="alertsContainer"></div>
+        </div>
+
+        <div class="main-content">
+            <h1>🎨 INI Task Visualizer</h1>
+            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <h3>Drop your INI file here</h3>
+                <p>or click to select</p>
+            </div>
+            <input type="file" id="fileInput" accept=".ini,.txt">
+            <div id="network"></div>
+        </div>
+    </div>
+
+    <script>
+        // Extensible type configuration
+        const typeConfig = {
+            SERVICES: {
+                color: '#4CAF50',
+                icon: '⚙️',
+                shape: 'box',
+                label: 'Services'
+            },
+            JOB: {
+                color: '#2196F3',
+                icon: '📋',
+                shape: 'box',
+                label: 'Job'
+            },
+            CHAINE: {
+                color: '#FF9800',
+                icon: '🔗',
+                shape: 'box',  // Changed from diamond to box for better text visibility
+                label: 'Chain'
+            },
+            CHECKFILE: {
+                color: '#9C27B0',
+                icon: '📄',
+                shape: 'box',
+                label: 'Check File'
+            },
+            COPY: {
+                color: '#00BCD4',
+                icon: '📋',
+                shape: 'box',
+                label: 'Copy'
+            },
+            CHECKPORT: {
+                color: '#FF5722',
+                icon: '🔌',
+                shape: 'box',
+                label: 'Check Port'
+            },
+            MISSING: {
+                color: '#dc3545',
+                icon: '❌',
+                shape: 'ellipse',
+                label: 'Missing'
+            }
+        };
+
+        let network = null;
+        let allNodes = [];
+        let allEdges = [];
+        let parsedData = {};
+        let physicsEnabled = false;
+        let edgeLabelsVisible = true;
+        let focusMode = false;
+        let focusedNodeId = null;
+        let savedPositions = {};
+
+        // Initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
+            
+            // Check if vis.js is loaded
+            if (typeof vis === 'undefined') {
+                console.error('vis.js is not loaded!');
+                alert('Error: The vis.js library could not be loaded. Check your internet connection.');
+                return;
+            }
+            
+            console.log('vis.js loaded successfully');
+            setupEventListeners();
+            initializeLegend();
+        });
+
+        function setupEventListeners() {
+            const uploadZone = document.getElementById('uploadZone');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            });
+
+            uploadZone.addEventListener('dragleave', () => {
+                uploadZone.classList.remove('dragover');
+            });
+
+            uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+
+            document.getElementById('searchNode').addEventListener('input', handleSearch);
+            document.getElementById('filterType').addEventListener('change', handleFilter);
+            document.getElementById('spacingSlider').addEventListener('input', (e) => {
+                document.getElementById('spacingValue').textContent = e.target.value;
+                applyForceDirectedLayout(e.target.value / 100);
+            });
+        }
+
+        function initializeLegend() {
+            const legendItems = document.getElementById('legendItems');
+            const filterSelect = document.getElementById('filterType');
+            
+            Object.entries(typeConfig).forEach(([type, config]) => {
+                if (type !== 'MISSING') {
+                    const item = document.createElement('div');
+                    item.className = 'legend-item';
+                    item.innerHTML = `
+                        <div class="legend-color" style="background: ${config.color};"></div>
+                        <span>${config.icon} ${config.label}</span>
+                    `;
+                    legendItems.appendChild(item);
+
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = config.label;
+                    filterSelect.appendChild(option);
+                }
+            });
+
+            // Add "Missing" item
+            const missingItem = document.createElement('div');
+            missingItem.className = 'legend-item';
+            missingItem.innerHTML = `
+                <div class="legend-color" style="background: ${typeConfig.MISSING.color}; border-style: dashed;"></div>
+                <span>${typeConfig.MISSING.icon} ${typeConfig.MISSING.label}</span>
+            `;
+            legendItems.appendChild(missingItem);
+        }
+
+        function handleFile(file) {
+            // Hide upload zone and show loading
+            document.getElementById('uploadZone').classList.add('loaded');
+            showLoading();
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                setTimeout(() => {
+                    parseINI(content);
+                    hideLoading();
+                }, 300);
+            };
+            reader.onerror = () => {
+                alert('❌ Error reading file');
+                document.getElementById('uploadZone').classList.remove('loaded');
+                hideLoading();
+            };
+            reader.readAsText(file);
+        }
+
+        function showLoading() {
+            const network = document.getElementById('network');
+            network.innerHTML = '<div class="loading">⏳ Loading and analyzing file...</div>';
+        }
+
+        function hideLoading() {
+            const network = document.getElementById('network');
+            network.innerHTML = '';
+        }
+
+        function parseINI(content) {
+            const sections = {};
+            const lines = content.split('\n');
+            let currentSection = null;
+
+            for (let line of lines) {
+                line = line.trim();
+                
+                // Ignore empty lines and comments
+                if (!line || line.startsWith(';') || line.startsWith('#')) continue;
+
+                // Section detection
+                const sectionMatch = line.match(/^\[(.+)\]$/);
+                if (sectionMatch) {
+                    currentSection = sectionMatch[1];
+                    sections[currentSection] = {};
+                    continue;
+                }
+
+                // Property parsing
+                if (currentSection) {
+                    const propMatch = line.match(/^([^=]+)=(.*)$/);
+                    if (propMatch) {
+                        const key = propMatch[1].trim();
+                        const value = propMatch[2].trim();
+                        sections[currentSection][key] = value;
+                    }
+                }
+            }
+
+            parsedData = sections;
+            buildGraph(sections);
+        }
+
+        function buildGraph(sections) {
+            console.log('Building graph from sections:', sections);
+            
+            const nodes = [];
+            const edges = [];
+            const existingSections = new Set(Object.keys(sections));
+            const missingJobs = new Set();
+
+            // Create nodes
+            Object.entries(sections).forEach(([name, props]) => {
+                const type = props.TYPE || 'UNKNOWN';
+                const config = typeConfig[type] || typeConfig.JOB;
+
+                // Create tooltip text
+                let tooltipText = `${config.icon} ${name}\n`;
+                tooltipText += `Type: ${type}\n`;
+                if (props.DESCRIPTION) {
+                    tooltipText += `Description: ${props.DESCRIPTION}`;
+                }
+
+                nodes.push({
+                    id: name,
+                    label: `${config.icon}\n${name}`,
+                    color: config.color,
+                    shape: config.shape,
+                    font: { size: 14, color: '#fff', bold: true },
+                    title: tooltipText,
+                    data: props,
+                    type: type
+                });
+            });
+
+            console.log('Created', nodes.length, 'nodes');
+
+            // Create links and detect missing jobs
+            let edgeIdCounter = 0;
+            Object.entries(sections).forEach(([name, props]) => {
+                // Handle PRE_RUN
+                if (props.PRE_RUN) {
+                    const dependencies = props.PRE_RUN.split(',').map(d => d.trim());
+                    dependencies.forEach(dep => {
+                        if (!existingSections.has(dep)) {
+                            missingJobs.add(dep);
+                        }
+                        edges.push({
+                            id: `edge-${edgeIdCounter++}`,
+                            from: dep,
+                            to: name,
+                            arrows: 'to',
+                            color: { color: '#2196F3' },
+                            label: 'PRE_RUN',
+                            originalLabel: 'PRE_RUN',
+                            font: { size: 10 },
+                            smooth: { type: 'curvedCW', roundness: 0.2 }
+                        });
+                    });
+                }
+
+                // Handle LIST_JOBS
+                if (props.LIST_JOBS) {
+                    const jobs = props.LIST_JOBS.split(',').map(j => j.trim());
+                    jobs.forEach(job => {
+                        if (!existingSections.has(job)) {
+                            missingJobs.add(job);
+                        }
+                        edges.push({
+                            id: `edge-${edgeIdCounter++}`,
+                            from: name,
+                            to: job,
+                            arrows: 'to',
+                            color: { color: '#FF9800' },
+                            dashes: true,
+                            label: 'CONTAINS',
+                            originalLabel: 'CONTAINS',
+                            font: { size: 10 },
+                            smooth: { type: 'curvedCW', roundness: 0.2 }
+                        });
+                    });
+                }
+            });
+
+            console.log('Created', edges.length, 'edges');
+
+            // Auto-hide labels if too many nodes for better readability
+            if (nodes.length > 20) {
+                console.log('Large graph detected, hiding edge labels by default');
+                edgeLabelsVisible = false;
+                edges.forEach(edge => {
+                    edge.label = undefined;
+                    edge.font = undefined;
+                });
+            }
+
+            // Add missing nodes
+            missingJobs.forEach(jobName => {
+                const config = typeConfig.MISSING;
+                nodes.push({
+                    id: jobName,
+                    label: `${config.icon}\n${jobName}`,
+                    color: config.color,
+                    shape: config.shape,
+                    font: { size: 14, color: '#fff', bold: true },
+                    borderWidth: 3,
+                    shapeProperties: {
+                        borderDashes: [5, 5]
+                    },
+                    data: { TYPE: 'MISSING' },
+                    type: 'MISSING'
+                });
+            });
+
+            if (missingJobs.size > 0) {
+                console.log('Found', missingJobs.size, 'missing jobs:', Array.from(missingJobs));
+            }
+
+            allNodes = nodes;
+            allEdges = edges;
+
+            console.log('Starting visualization...');
+            visualizeGraph(nodes, edges);
+            updateStats(nodes, edges);
+            displayAlerts(missingJobs);
+        }
+
+        function visualizeGraph(nodes, edges) {
+            const container = document.getElementById('network');
+            
+            // Clear any existing content
+            container.innerHTML = '';
+            
+            console.log('Visualizing graph with', nodes.length, 'nodes and', edges.length, 'edges');
+            
+            // Add a small delay to ensure DOM is ready
+            setTimeout(() => {
+                const data = {
+                    nodes: new vis.DataSet(nodes),
+                    edges: new vis.DataSet(edges)
+                };
+
+                // Calculate better spacing based on number of nodes
+                // Use 50% spacing by default
+                const spacingMultiplier = 0.5;
+                const nodeCount = nodes.length;
+                const baseGravity = -80;
+                const baseSpring = 250;
+                const gravitationalConstant = (baseGravity * spacingMultiplier) - (nodeCount * 1.5);
+                const springLength = (baseSpring * spacingMultiplier) + (nodeCount * 1.5);
+
+                const options = {
+                    layout: {
+                        hierarchical: {
+                            enabled: false
+                        }
+                    },
+                    physics: {
+                        enabled: true,
+                        solver: 'forceAtlas2Based',
+                        forceAtlas2Based: {
+                            gravitationalConstant: gravitationalConstant,
+                            centralGravity: 0.005,
+                            springLength: springLength,
+                            springConstant: 0.04,
+                            damping: 0.5,
+                            avoidOverlap: 1
+                        },
+                        stabilization: {
+                            enabled: true,
+                            iterations: 250,
+                            updateInterval: 25
+                        }
+                    },
+                    interaction: {
+                        hover: true,
+                        navigationButtons: true,
+                        keyboard: true,
+                        zoomView: true,
+                        dragView: true,
+                        dragNodes: true,
+                        tooltipDelay: 200,
+                        hideEdgesOnDrag: false,
+                        hideEdgesOnZoom: false
+                    },
+                    nodes: {
+                        shadow: true,
+                        borderWidth: 2,
+                        size: 30,
+                        font: {
+                            size: 14,
+                            face: 'Arial'
+                        },
+                        widthConstraint: {
+                            minimum: 100,
+                            maximum: 250
+                        },
+                        heightConstraint: {
+                            minimum: 60
+                        },
+                        margin: 10
+                    },
+                    edges: {
+                        width: 2,
+                        shadow: true,
+                        smooth: {
+                            enabled: true,
+                            type: 'curvedCW',
+                            roundness: 0.2
+                        }
+                    }
+                };
+
+                // Destroy existing network if it exists
+                if (network) {
+                    network.destroy();
+                }
+
+                try {
+                    network = new vis.Network(container, data, options);
+                    console.log('Network created successfully');
+
+                    // Update physicsEnabled state
+                    physicsEnabled = true;
+                } catch (error) {
+                    console.error('Error creating network:', error);
+                    container.innerHTML = '<div style="padding: 40px; color: red;">Error creating graph: ' + error.message + '</div>';
+                }
+
+                network.on('click', function(params) {
+                    if (params.nodes.length > 0) {
+                        const nodeId = params.nodes[0];
+                        displayNodeDetails(nodeId);
+                    }
+                });
+
+                network.on('doubleClick', function(params) {
+                    if (params.nodes.length > 0) {
+                        network.focus(params.nodes[0], {
+                            scale: 1.5,
+                            animation: true
+                        });
+                    }
+                });
+
+
+                network.on('stabilizationIterationsDone', function() {
+                    console.log('Network stabilized');
+                    // Fit the view once stabilized
+                    network.fit({ animation: true });
+                    // Freeze physics after stabilization but keep nodes draggable
+                    network.setOptions({
+                        physics: { enabled: false },
+                        interaction: { dragNodes: true }
+                    });
+                    physicsEnabled = false;
+                    console.log('Physics frozen after stabilization - nodes remain draggable');
+                });
+            }, 100);
+        }
+
+        function toggleFocusMode(nodeId) {
+            if (focusMode && focusedNodeId === nodeId) {
+                // Exit focus mode
+                focusMode = false;
+                focusedNodeId = null;
+
+                // Restore all nodes with their saved positions
+                const nodesWithPositions = allNodes.map(node => {
+                    if (savedPositions[node.id]) {
+                        return {
+                            ...node,
+                            x: savedPositions[node.id].x,
+                            y: savedPositions[node.id].y,
+                            fixed: { x: true, y: true }
+                        };
+                    }
+                    return node;
+                });
+
+                network.setData({
+                    nodes: new vis.DataSet(nodesWithPositions),
+                    edges: new vis.DataSet(allEdges)
+                });
+
+                // Disable physics to keep positions
+                network.setOptions({ physics: { enabled: false } });
+                network.fit({ animation: true });
+            } else {
+                // Enter focus mode - save current positions first
+                savedPositions = {};
+                network.body.data.nodes.forEach(node => {
+                    const position = network.getPositions([node.id])[node.id];
+                    if (position) {
+                        savedPositions[node.id] = { x: position.x, y: position.y };
+                    }
+                });
+
+                focusMode = true;
+                focusedNodeId = nodeId;
+
+                // Get connected nodes (direct dependencies only)
+                const connectedNodes = new Set([nodeId]);
+                const connectedEdges = [];
+
+                allEdges.forEach(edge => {
+                    if (edge.from === nodeId || edge.to === nodeId) {
+                        connectedNodes.add(edge.from);
+                        connectedNodes.add(edge.to);
+                        connectedEdges.push(edge);
+                    }
+                });
+
+                // Filter nodes and edges, keeping positions
+                const filteredNodes = allNodes.filter(node => connectedNodes.has(node.id)).map(node => {
+                    if (savedPositions[node.id]) {
+                        return {
+                            ...node,
+                            x: savedPositions[node.id].x,
+                            y: savedPositions[node.id].y
+                        };
+                    }
+                    return node;
+                });
+
+                network.setData({
+                    nodes: new vis.DataSet(filteredNodes),
+                    edges: new vis.DataSet(connectedEdges)
+                });
+
+                // Disable physics and focus on the selected node
+                network.setOptions({ physics: { enabled: false } });
+                setTimeout(() => {
+                    network.fit({ animation: true });
+                }, 100);
+            }
+
+            // Refresh the details panel to update the button text
+            displayNodeDetails(nodeId);
+        }
+
+        function navigateToNode(nodeId) {
+            // Focus on the node in the graph
+            network.focus(nodeId, {
+                scale: 1.5,
+                animation: {
+                    duration: 500,
+                    easingFunction: 'easeInOutQuad'
+                }
+            });
+            // Select the node
+            network.selectNodes([nodeId]);
+            // Display its details
+            displayNodeDetails(nodeId);
+        }
+
+        function displayNodeDetails(nodeId) {
+            const node = allNodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const props = node.data;
+            const config = typeConfig[node.type] || typeConfig.JOB;
+            const container = document.getElementById('nodeDetailsContainer');
+
+            // Build details content
+            let html = `
+                <div class="node-details">
+                    <h3>${config.icon} ${nodeId}</h3>
+                    <div style="margin-bottom: 10px; display: flex; gap: 5px;">
+                        <button class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 11px;" onclick="toggleFocusMode('${nodeId}')">
+                            ${focusMode && focusedNodeId === nodeId ? '🔍 Exit Focus' : '🔍 Focus Mode'}
+                        </button>
+                    </div>
+            `;
+
+            // Section for properties
+            if (Object.keys(props).length > 0) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">📋 Properties</div>
+                `;
+                Object.entries(props).forEach(([key, value]) => {
+                    html += `
+                        <div class="detail-row">
+                            <span class="detail-label">${key}:</span>
+                            <span class="detail-value">${value}</span>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            // Show incoming dependencies
+            const incomingEdges = allEdges.filter(e => e.to === nodeId);
+            if (incomingEdges.length > 0) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">⬅️ Dependencies (${incomingEdges.length})</div>
+                        <ul class="detail-list">
+                            ${incomingEdges.map(e => {
+                                const fromNode = allNodes.find(n => n.id === e.from);
+                                const isMissing = fromNode?.type === 'MISSING';
+                                return `<li class="${isMissing ? 'missing' : ''}" onclick="navigateToNode('${e.from}')">${e.from}</li>`;
+                            }).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // Show outgoing dependencies
+            const outgoingEdges = allEdges.filter(e => e.from === nodeId);
+            if (outgoingEdges.length > 0) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">➡️ Required by (${outgoingEdges.length})</div>
+                        <ul class="detail-list">
+                            ${outgoingEdges.map(e => `<li onclick="navigateToNode('${e.to}')">${e.to}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        function handleSearch(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            if (!searchTerm) {
+                resetNodeColors();
+                return;
+            }
+
+            const matchingNodes = allNodes.filter(n => 
+                n.id.toLowerCase().includes(searchTerm)
+            );
+
+            if (matchingNodes.length > 0) {
+                network.selectNodes(matchingNodes.map(n => n.id));
+                network.fit({
+                    nodes: matchingNodes.map(n => n.id),
+                    animation: true
+                });
+            }
+        }
+
+        function handleFilter(e) {
+            const filterType = e.target.value;
+            
+            if (filterType === 'all') {
+                network.setData({
+                    nodes: new vis.DataSet(allNodes),
+                    edges: new vis.DataSet(allEdges)
+                });
+            } else {
+                const filteredNodes = allNodes.filter(n => n.type === filterType);
+                const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
+                const filteredEdges = allEdges.filter(e => 
+                    filteredNodeIds.has(e.from) && filteredNodeIds.has(e.to)
+                );
+
+                network.setData({
+                    nodes: new vis.DataSet(filteredNodes),
+                    edges: new vis.DataSet(filteredEdges)
+                });
+            }
+        }
+
+        function applyForceDirectedLayout(spacingMultiplier = 1.0) {
+            // Calculate better spacing based on number of nodes
+            const nodeCount = allNodes.length;
+            const baseGravity = -80;
+            const baseSpring = 250;
+            
+            // Adjust based on node count and user preference
+            const gravitationalConstant = baseGravity * spacingMultiplier - (nodeCount * 1.5);
+            const springLength = baseSpring * spacingMultiplier + (nodeCount * 1.5);
+            
+            const options = {
+                layout: {
+                    hierarchical: { enabled: false }
+                },
+                physics: {
+                    enabled: true,
+                    solver: 'forceAtlas2Based',
+                    forceAtlas2Based: {
+                        gravitationalConstant: gravitationalConstant,
+                        centralGravity: 0.005,
+                        springLength: springLength,
+                        springConstant: 0.04,
+                        damping: 0.5,
+                        avoidOverlap: 1
+                    },
+                    stabilization: {
+                        enabled: true,
+                        iterations: 250,
+                        updateInterval: 25
+                    }
+                }
+            };
+
+            network.setOptions(options);
+            
+            // Give time for physics to stabilize
+            setTimeout(() => {
+                network.fit({ animation: true });
+            }, 500);
+        }
+
+        function reloadFile() {
+            document.getElementById('uploadZone').classList.remove('loaded');
+            document.getElementById('network').innerHTML = '';
+            document.getElementById('alertsContainer').innerHTML = '';
+            document.getElementById('nodeDetailsContainer').innerHTML = '';
+            document.getElementById('statsContainer').classList.add('hidden');
+            document.getElementById('fileInput').value = '';
+            document.getElementById('spacingSlider').value = 50;
+            document.getElementById('spacingValue').textContent = '50';
+            focusMode = false;
+            focusedNodeId = null;
+            savedPositions = {};
+            if (network) {
+                network.destroy();
+                network = null;
+            }
+            allNodes = [];
+            allEdges = [];
+            parsedData = {};
+        }
+
+        function resetNodeColors() {
+            network.unselectAll();
+        }
+
+        function exportPNG() {
+            const canvas = document.querySelector('#network canvas');
+            if (canvas) {
+                const link = document.createElement('a');
+                link.download = 'task-graph.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }
+        }
+
+        function exportSVG() {
+            const canvas = document.querySelector('#network canvas');
+            if (!canvas) return;
+
+            // Get canvas dimensions
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Create SVG
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("width", width);
+            svg.setAttribute("height", height);
+            svg.setAttribute("xmlns", svgNS);
+
+            // Add white background
+            const rect = document.createElementNS(svgNS, "rect");
+            rect.setAttribute("width", width);
+            rect.setAttribute("height", height);
+            rect.setAttribute("fill", "white");
+            svg.appendChild(rect);
+
+            // Convert canvas to data URL and embed as image in SVG
+            const image = document.createElementNS(svgNS, "image");
+            image.setAttribute("width", width);
+            image.setAttribute("height", height);
+            image.setAttributeNS("http://www.w3.org/1999/xlink", "href", canvas.toDataURL("image/png"));
+            svg.appendChild(image);
+
+            // Serialize SVG
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svg);
+
+            // Create download link
+            const blob = new Blob([svgString], { type: "image/svg+xml" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = 'task-graph.svg';
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function updateStats(nodes, edges) {
+            document.getElementById('statsContainer').classList.remove('hidden');
+            document.getElementById('totalNodes').textContent = nodes.length;
+            document.getElementById('totalEdges').textContent = edges.length;
+            
+            // Cycle detection
+            const cycles = detectCycles();
+            document.getElementById('cyclesCount').textContent = cycles.length;
+            
+            if (cycles.length > 0) {
+                displayCycleAlert(cycles);
+            }
+        }
+
+        function detectCycles() {
+            const visited = new Set();
+            const recStack = new Set();
+            const cycles = [];
+
+            function dfs(nodeId, path = []) {
+                visited.add(nodeId);
+                recStack.add(nodeId);
+                path.push(nodeId);
+
+                const neighbors = allEdges
+                    .filter(e => e.from === nodeId)
+                    .map(e => e.to);
+
+                for (const neighbor of neighbors) {
+                    if (!visited.has(neighbor)) {
+                        if (dfs(neighbor, [...path])) {
+                            return true;
+                        }
+                    } else if (recStack.has(neighbor)) {
+                        cycles.push([...path, neighbor]);
+                    }
+                }
+
+                recStack.delete(nodeId);
+                return false;
+            }
+
+            allNodes.forEach(node => {
+                if (!visited.has(node.id)) {
+                    dfs(node.id);
+                }
+            });
+
+            return cycles;
+        }
+
+        function displayAlerts(missingJobs) {
+            const container = document.getElementById('alertsContainer');
+            container.innerHTML = '';
+
+            if (missingJobs.size > 0) {
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-error';
+                alert.innerHTML = `
+                    <strong>⚠️ Missing Jobs (${missingJobs.size}):</strong><br>
+                    <div class="scrollable-list" style="margin-top: 8px;">
+                        ${Array.from(missingJobs).map(job => 
+                            `<div class="missing-job">• ${job}</div>`
+                        ).join('')}
+                    </div>
+                `;
+                container.appendChild(alert);
+            } else {
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success';
+                alert.innerHTML = '<strong>✅ No missing jobs detected</strong>';
+                container.appendChild(alert);
+            }
+        }
+
+        function displayCycleAlert(cycles) {
+            const container = document.getElementById('alertsContainer');
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-warning';
+            alert.innerHTML = `
+                <strong>🔄 Cycles Detected (${cycles.length}):</strong><br>
+                <div class="scrollable-list" style="margin-top: 8px;">
+                    ${cycles.map((cycle, i) => 
+                        `<div>Cycle ${i+1}: ${cycle.join(' → ')}</div>`
+                    ).join('')}
+                </div>
+            `;
+            container.appendChild(alert);
+        }
+    </script>
+</body>
+</html>
