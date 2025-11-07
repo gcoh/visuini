@@ -1074,14 +1074,14 @@
                 focusMode = false;
                 focusedNodeId = null;
 
-                // Restore all nodes with their saved positions
+                // Restore all nodes with their saved positions but keep them draggable
                 const nodesWithPositions = allNodes.map(node => {
                     if (savedPositions[node.id]) {
                         return {
                             ...node,
                             x: savedPositions[node.id].x,
                             y: savedPositions[node.id].y,
-                            fixed: { x: true, y: true }
+                            fixed: false  // Allow dragging
                         };
                     }
                     return node;
@@ -1092,8 +1092,11 @@
                     edges: new vis.DataSet(allEdges)
                 });
 
-                // Disable physics to keep positions
-                network.setOptions({ physics: { enabled: false } });
+                // Disable physics to keep positions but allow dragging
+                network.setOptions({
+                    physics: { enabled: false },
+                    interaction: { dragNodes: true }
+                });
                 network.fit({ animation: true });
             } else {
                 // Enter focus mode - save current positions first
@@ -1108,17 +1111,36 @@
                 focusMode = true;
                 focusedNodeId = nodeId;
 
-                // Get connected nodes (direct dependencies only)
+                // Get all connected nodes recursively (all levels)
                 const connectedNodes = new Set([nodeId]);
-                const connectedEdges = [];
+                const connectedEdgesSet = new Set(); // Use Set to avoid duplicates
+                const visited = new Set();
 
-                allEdges.forEach(edge => {
-                    if (edge.from === nodeId || edge.to === nodeId) {
-                        connectedNodes.add(edge.from);
-                        connectedNodes.add(edge.to);
-                        connectedEdges.push(edge);
-                    }
-                });
+                // Recursive function to find all connected nodes
+                function findAllConnected(currentNodeId) {
+                    if (visited.has(currentNodeId)) return;
+                    visited.add(currentNodeId);
+
+                    allEdges.forEach(edge => {
+                        // Check if edge connects to current node (in either direction)
+                        if (edge.from === currentNodeId) {
+                            connectedNodes.add(edge.to);
+                            connectedEdgesSet.add(edge);
+                            findAllConnected(edge.to);
+                        }
+                        if (edge.to === currentNodeId) {
+                            connectedNodes.add(edge.from);
+                            connectedEdgesSet.add(edge);
+                            findAllConnected(edge.from);
+                        }
+                    });
+                }
+
+                // Start recursive search from the selected node
+                findAllConnected(nodeId);
+
+                // Convert Set to Array
+                const uniqueEdges = Array.from(connectedEdgesSet);
 
                 // Filter nodes and edges, keeping positions
                 const filteredNodes = allNodes.filter(node => connectedNodes.has(node.id)).map(node => {
@@ -1134,7 +1156,7 @@
 
                 network.setData({
                     nodes: new vis.DataSet(filteredNodes),
-                    edges: new vis.DataSet(connectedEdges)
+                    edges: new vis.DataSet(uniqueEdges)
                 });
 
                 // Disable physics and focus on the selected node
