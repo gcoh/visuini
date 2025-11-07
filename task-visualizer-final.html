@@ -702,27 +702,137 @@
 
         function buildGraph(sections) {
             console.log('Building graph from sections:', sections);
-            
+
             const nodes = [];
             const edges = [];
             const existingSections = new Set(Object.keys(sections));
             const missingJobs = new Set();
 
-            // Create nodes
+            // First pass: create a map of job positions in their parent chains/services
+            const jobOrderMap = new Map(); // Map<jobName, Array<{parent, order}>>
+
+            Object.entries(sections).forEach(([name, props]) => {
+                // Check LIST_JOBS for chains/services
+                if (props.LIST_JOBS) {
+                    const jobs = props.LIST_JOBS.split(',').map(j => j.trim());
+                    jobs.forEach((job, index) => {
+                        if (!jobOrderMap.has(job)) {
+                            jobOrderMap.set(job, []);
+                        }
+                        jobOrderMap.get(job).push({
+                            parent: name,
+                            order: index + 1,
+                            total: jobs.length
+                        });
+                    });
+                }
+
+                // Check PRE_RUN for dependencies
+                if (props.PRE_RUN) {
+                    const deps = props.PRE_RUN.split(',').map(d => d.trim());
+                    deps.forEach((dep, index) => {
+                        if (!jobOrderMap.has(dep)) {
+                            jobOrderMap.set(dep, []);
+                        }
+                        jobOrderMap.get(dep).push({
+                            parent: name,
+                            order: index + 1,
+                            total: deps.length,
+                            isDependency: true
+                        });
+                    });
+                }
+            });
+
+            // Create nodes with order numbers
             Object.entries(sections).forEach(([name, props]) => {
                 const type = props.TYPE || 'UNKNOWN';
                 const config = typeConfig[type] || typeConfig.JOB;
 
+                // Build the label with order information
+                let label = `${config.icon}\n${name}`;
+
+                // Add order badges if this job is part of any chain/service
+                const orderInfo = jobOrderMap.get(name);
+                if (orderInfo && orderInfo.length > 0) {
+                    // Filter only LIST_JOBS relationships (not dependencies)
+                    const chainOrders = orderInfo.filter(info => !info.isDependency);
+                    if (chainOrders.length > 0) {
+                        const orderBadges = chainOrders.map(info => `#${info.order}`).join(' ');
+                        label = `${config.icon} ${orderBadges}\n${name}`;
+                    }
+                }
+
                 // Create tooltip text
                 let tooltipText = `${config.icon} ${name}\n`;
                 tooltipText += `Type: ${type}\n`;
+
+                // Show order in chains
+                if (orderInfo && orderInfo.length > 0) {
+                    const chainOrders = orderInfo.filter(info => !info.isDependency);
+                    if (chainOrders.length > 0) {
+                        tooltipText += `\nOrder in chains:\n`;
+                        chainOrders.forEach(info => {
+                            tooltipText += `  - ${info.parent}: #${info.order}/${info.total}\n`;
+                        });
+                    }
+                }
+
+                // Show SERVICES if present
+                if (props.SERVICES) {
+                    const services = props.SERVICES.split(',').map(s => s.trim());
+                    tooltipText += `\nSERVICES (${services.length}):\n`;
+                    services.forEach((service, index) => {
+                        tooltipText += `  ${index + 1}. ${service}\n`;
+                    });
+                }
+
+                // Show LIST_JOBS if present
+                if (props.LIST_JOBS) {
+                    const jobs = props.LIST_JOBS.split(',').map(j => j.trim());
+                    tooltipText += `\nLIST_JOBS (${jobs.length}):\n`;
+                    jobs.forEach((job, index) => {
+                        tooltipText += `  ${index + 1}. ${job}\n`;
+                    });
+                }
+
+                // Show PRE_RUN if present
+                if (props.PRE_RUN) {
+                    const deps = props.PRE_RUN.split(',').map(d => d.trim());
+                    tooltipText += `\nPRE_RUN (${deps.length}):\n`;
+                    deps.forEach((dep, index) => {
+                        tooltipText += `  ${index + 1}. ${dep}\n`;
+                    });
+                }
+
+                // Show other important properties
                 if (props.DESCRIPTION) {
-                    tooltipText += `Description: ${props.DESCRIPTION}`;
+                    tooltipText += `\nDescription: ${props.DESCRIPTION}\n`;
+                }
+
+                if (props.COMMAND) {
+                    tooltipText += `\nCommand: ${props.COMMAND}\n`;
+                }
+
+                if (props.SCRIPT) {
+                    tooltipText += `\nScript: ${props.SCRIPT}\n`;
+                }
+
+                if (props.FILE_PATH) {
+                    tooltipText += `\nFile Path: ${props.FILE_PATH}\n`;
+                }
+
+                if (props.HOST) {
+                    tooltipText += `\nHost: ${props.HOST}\n`;
+                }
+
+                if (props.PORT) {
+                    tooltipText += `\nPort: ${props.PORT}\n`;
                 }
 
                 nodes.push({
                     id: name,
-                    label: `${config.icon}\n${name}`,
+                    label: label,
                     color: config.color,
                     shape: config.shape,
                     font: { size: 14, color: '#fff', bold: true },
@@ -1089,31 +1199,48 @@
                 html += `</div>`;
             }
 
-            // Show incoming dependencies
-            const incomingEdges = allEdges.filter(e => e.to === nodeId);
+            // Show incoming dependencies (PRE_RUN)
+            const incomingEdges = allEdges.filter(e => e.to === nodeId && e.originalLabel === 'PRE_RUN');
             if (incomingEdges.length > 0) {
                 html += `
                     <div class="detail-section">
-                        <div class="detail-section-title">⬅️ Dependencies (${incomingEdges.length})</div>
+                        <div class="detail-section-title">⬅️ Dependencies (PRE_RUN) - ${incomingEdges.length}</div>
                         <ul class="detail-list">
-                            ${incomingEdges.map(e => {
+                            ${incomingEdges.map((e, index) => {
                                 const fromNode = allNodes.find(n => n.id === e.from);
                                 const isMissing = fromNode?.type === 'MISSING';
-                                return `<li class="${isMissing ? 'missing' : ''}" onclick="navigateToNode('${e.from}')">${e.from}</li>`;
+                                return `<li class="${isMissing ? 'missing' : ''}" onclick="navigateToNode('${e.from}')"><strong>#${index + 1}</strong> - ${e.from}</li>`;
                             }).join('')}
                         </ul>
                     </div>
                 `;
             }
 
-            // Show outgoing dependencies
-            const outgoingEdges = allEdges.filter(e => e.from === nodeId);
-            if (outgoingEdges.length > 0) {
+            // Show outgoing dependencies (LIST_JOBS - for chains/services)
+            const outgoingListJobs = allEdges.filter(e => e.from === nodeId && e.originalLabel === 'CONTAINS');
+            if (outgoingListJobs.length > 0) {
                 html += `
                     <div class="detail-section">
-                        <div class="detail-section-title">➡️ Required by (${outgoingEdges.length})</div>
+                        <div class="detail-section-title">🔗 Jobs in Chain/Service (LIST_JOBS) - ${outgoingListJobs.length}</div>
                         <ul class="detail-list">
-                            ${outgoingEdges.map(e => `<li onclick="navigateToNode('${e.to}')">${e.to}</li>`).join('')}
+                            ${outgoingListJobs.map((e, index) => {
+                                const toNode = allNodes.find(n => n.id === e.to);
+                                const isMissing = toNode?.type === 'MISSING';
+                                return `<li class="${isMissing ? 'missing' : ''}" onclick="navigateToNode('${e.to}')"><strong>#${index + 1}</strong> - ${e.to}</li>`;
+                            }).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // Show outgoing PRE_RUN (jobs that depend on this one)
+            const outgoingPreRun = allEdges.filter(e => e.from === nodeId && e.originalLabel === 'PRE_RUN');
+            if (outgoingPreRun.length > 0) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">➡️ Required by - ${outgoingPreRun.length}</div>
+                        <ul class="detail-list">
+                            ${outgoingPreRun.map((e, index) => `<li onclick="navigateToNode('${e.to}')"><strong>#${index + 1}</strong> - ${e.to}</li>`).join('')}
                         </ul>
                     </div>
                 `;
